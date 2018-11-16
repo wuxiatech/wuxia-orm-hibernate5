@@ -16,7 +16,7 @@
     <description>WUXIA Hibernate5 Common Project</description>
     <version>2.2.1</version>
     <packaging>jar</packaging>
-    <url>https://github.com/wuxiatech/wuxia-common</url>
+    <url>https://github.com/wuxiatech/wuxia-orm-hibernate5</url>
     <properties>
         <wuxia-common.version>2.2.1</wuxia-common.version>
     </properties>
