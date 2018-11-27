@@ -231,13 +231,13 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
                     case LL:
                         if (StringUtil.isNotBlank(condition.getValue())) {
                             queryParameter.add(condition.getProperty() + condition.getMatchType().getSymbol());
-                            appendValues.add("%" + condition.getValue());
+                            appendValues.add( condition.getValue()+"%");
                         }
                         break;
                     case RL:
                         if (StringUtil.isNotBlank(condition.getValue())) {
                             queryParameter.add(condition.getProperty() + condition.getMatchType().getSymbol());
-                            appendValues.add(condition.getValue() + "%");
+                            appendValues.add("%"+condition.getValue() );
                         }
                         break;
                     case FL:
@@ -1037,7 +1037,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
                  * if value is blank, ignore the condition
                  */
                 if (StringUtil.isNotBlank(propertyValue[0])) {
-                    criterion = Restrictions.like(propertyName, "" + propertyValue[0], MatchMode.END);
+                    criterion = Restrictions.like(propertyName, "" + propertyValue[0], MatchMode.START);
                 }
                 break;
             case RL:
@@ -1045,7 +1045,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
                  * if value is blank, ignore the condition
                  */
                 if (StringUtil.isNotBlank(propertyValue[0])) {
-                    criterion = Restrictions.like(propertyName, "" + propertyValue[0], MatchMode.START);
+                    criterion = Restrictions.like(propertyName, "" + propertyValue[0], MatchMode.END);
                 }
                 break;
             case LTE:
