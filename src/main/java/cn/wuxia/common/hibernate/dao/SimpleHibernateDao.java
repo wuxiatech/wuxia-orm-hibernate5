@@ -29,6 +29,10 @@ import org.springframework.util.Assert;
 import cn.wuxia.common.util.ArrayUtil;
 import cn.wuxia.common.util.reflection.ReflectionUtil;
 
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Root;
+
 /**
  * Package Hibernate native API the DAO generic base class. Direct use in the
  * Service layer can also be extended to the generic DAO subclass, see the
@@ -204,8 +208,12 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      */
     public List<T> findBy(final String propertyName, final Object value) {
         Assert.hasText(propertyName, "propertyName Can not be null");
-        Criterion criterion = Restrictions.eq(propertyName, value);
-        return find(criterion);
+        CriteriaQuery crq = createCriteriaQuery();
+        Root<T> root = crq.from(entityClass);
+        crq.select(root);
+        crq.where(createCriteriaBuilder().equal(root.get(propertyName), value));
+
+        return getSession().createQuery(crq).getResultList();
     }
 
     /**
@@ -268,15 +276,19 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      */
     public T findUniqueBy(final String propertyName, final Object value) {
         Assert.hasText(propertyName, "propertyName Can not be null");
-        Criterion criterion = Restrictions.eq(propertyName, value);
-        return (T) createCriteria(criterion).uniqueResult();
+        CriteriaQuery crq = createCriteriaQuery();
+        Root<T> root = crq.from(entityClass);
+        crq.select(root);
+        crq.where(createCriteriaBuilder().equal(root.get(propertyName), value));
+
+        return (T) getSession().createQuery(crq).uniqueResult();
     }
 
     /**
      * @param values A variable number of parameters, in order binding.
      * @description : HQL query object list.
      */
-    protected  <X> List<X> find(final String hql, final Object... values) {
+    protected <X> List<X> find(final String hql, final Object... values) {
         Query<X> query = createQuery(hql, values);
         return query.list();
     }
@@ -308,6 +320,7 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
 
     /**
      * FIXME songlin.li add 调用executeUpdate方法如果service报错无法回滚
+     *
      * @param values A variable number of parameters, in order binding.
      * @return Updating the number of records.
      * @description : Execute HQL bulk modify / delete operations.
@@ -318,6 +331,7 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
 
     /**
      * FIXME songlin.li add 调用executeUpdate方法如果service报错无法回滚
+     *
      * @param values Named parameters, bind by name.
      * @return Updating the number of records.
      * @description : Execute HQL bulk modify / delete operations.
@@ -394,6 +408,7 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      * @param criterions Variable number of Criterion.
      * @description : Criteria query object list.
      */
+    @Deprecated
     public List<T> find(final Criterion... criterions) {
         return createCriteria(criterions).list();
     }
@@ -402,6 +417,7 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      * @param criterions Variable number of Criterion.
      * @description : Criteria query a unique object.
      */
+    @Deprecated
     public T findUnique(final Criterion... criterions) {
         return (T) createCriteria(criterions).uniqueResult();
     }
@@ -411,12 +427,21 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      * @description : Created under Criterion conditions with the find ()
      * function can be more flexible operation.
      */
+    @Deprecated
     public Criteria createCriteria(final Criterion... criterions) {
         Criteria criteria = getSession().createCriteria(entityClass);
         for (Criterion c : criterions) {
             criteria.add(c);
         }
         return criteria;
+    }
+
+    protected CriteriaBuilder createCriteriaBuilder() {
+        return getSession().getCriteriaBuilder();
+    }
+
+    protected CriteriaQuery<T> createCriteriaQuery() {
+        return createCriteriaBuilder().createQuery(entityClass);
     }
 
     /**
