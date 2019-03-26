@@ -6,6 +6,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.sql.SQLException;
+import java.util.Collection;
 
 import org.hibernate.Hibernate;
 import org.springframework.util.Assert;
@@ -18,7 +19,7 @@ import cn.wuxia.common.util.StringUtil;
 
 /**
  * [ticket id] Description of the class
- * 
+ *
  * @author songlin.li @ Version : V<Ver.No> <Oct 26, 2012>
  */
 public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializable> extends SupportHibernateDao<T, Serializable> {
@@ -45,7 +46,7 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
 
     /**
      * rewrite for service partner business
-     * 
+     *
      * @see cn.wuxia.common.hibernate.dao.SimpleHibernateDao#save(java.lang.Object)
      */
     public void saveEntity(T entity) throws AppDaoException {
@@ -61,13 +62,28 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
         }
     }
 
+    public void saveEntity(Collection<T> entitys) throws AppDaoException {
+        try {
+            for (T entity : entitys) {
+                entity.validate();
+                // super.evict(entity);
+                super.save(entity);
+                // super.merge(entity);
+            }
+        } catch (Exception e) {
+            throw new AppDaoException(e);
+        }
+        super.flush();
+        super.clear();
+    }
+
     /**
      * Description of the method
-     * 
-     * @author songlin
+     *
      * @param sql
      * @param values
      * @return
+     * @author songlin
      */
     protected int batchExecuteSql(final String sql, final Object... values) {
         return createSQLQuery(sql, values).executeUpdate();
@@ -75,10 +91,10 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
 
     /**
      * getEntityById
-     * 
-     * @author Cy.zhong
+     *
      * @param id
      * @return T class
+     * @author Cy.zhong
      */
     public T getEntityById(final Serializable id) {
         return get(id);
@@ -86,10 +102,10 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
 
     /**
      * getEntityByIdForLog
-     * 
-     * @author Cy.zhong
+     *
      * @param id
      * @return
+     * @author Cy.zhong
      */
     public T getEvictEntityById(final Serializable id) {
         T t = getEntityById(id);
@@ -99,9 +115,9 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
 
     /**
      * physically deleted
-     * 
-     * @author songlin.li
+     *
      * @param id
+     * @author songlin.li
      */
     public void deleteEntityById(final Serializable id) throws AppDaoException {
         Assert.notNull(id, "id Can not be null");
@@ -111,9 +127,9 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
 
     /**
      * physically deleted
-     * 
-     * @author songlin.li
+     *
      * @param entity
+     * @author songlin.li
      */
     public void deleteByEntity(final T entity) throws AppDaoException {
         Assert.notNull(entity, "entity Can not be null");
@@ -125,8 +141,8 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
 
     /**
      * @param queryUtil
-     * @author songlin.li
      * @return
+     * @author songlin.li
      */
     public QueryUtil find(QueryUtil queryUtil) {
         if (StringUtil.isBlank(queryUtil.getQueryString()) || StringUtil.isBlank(queryUtil.getQueryType())) {
