@@ -13,6 +13,7 @@ import java.util.List;
 
 import javax.persistence.Entity;
 
+import cn.wuxia.common.orm.PageSQLHandler;
 import org.hibernate.query.NativeQuery;
 import org.hibernate.query.Query;
 import org.hibernate.search.FullTextQuery;
@@ -78,7 +79,7 @@ public class IndexHibernateDao<T extends ValidationEntity, PK extends Serializab
     public <X> Pages<X> findIndexPage(final Pages<X> page, final Class<X> clas, final String hql, final Object... values) {
         Assert.notNull(page, "page can not be null");
         List<Object> paramValue = ListUtil.arrayToList(values);
-        String queryHql = dualDynamicCondition(hql, page.getConditions(), paramValue);
+        String queryHql = PageSQLHandler.dualDynamicCondition(hql, page.getConditions(), paramValue);
         queryHql += appendOrderBy(queryHql, page.getSort());
         Query q = null;
         if (clas != null) {
@@ -103,7 +104,8 @@ public class IndexHibernateDao<T extends ValidationEntity, PK extends Serializab
      * query by HQL.
      * 
      * @param page
-     * @param hql
+     * @param clas
+     * @param sql
      * @param values values Variable number of parameters, in order to bind.
      * @return Paging query results , with the list of results and all of the
      *         query input parameters.
@@ -111,7 +113,7 @@ public class IndexHibernateDao<T extends ValidationEntity, PK extends Serializab
     public <X> Pages<X> findIndexPageBySql(final Pages<X> page, final Class<X> clas, final String sql, final Object... values) {
         Assert.notNull(page, "page can not be null");
         List<Object> paramValue = ListUtil.arrayToList(values);
-        String queryHql = dualDynamicCondition(sql, page.getConditions(), paramValue);
+        String queryHql = PageSQLHandler.dualDynamicCondition(sql, page.getConditions(), paramValue);
         queryHql += appendOrderBy(queryHql, page.getSort());
         NativeQuery q = createIndexSQLQuery(queryHql, paramValue.toArray());
         setPageParameterToQuery(q, page);
