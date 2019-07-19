@@ -8,6 +8,7 @@ import java.util.Map;
 
 import javax.persistence.Entity;
 
+import cn.wuxia.common.exception.AppServiceException;
 import cn.wuxia.common.orm.PageSQLHandler;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -319,15 +320,26 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
         return NumberUtil.toLong(count, 0L);
     }
 
+
     private String prepareCountHql(String orgHql) {
         String fromHql = orgHql;
         // the select clause and order by clause will affect the count query for
         // simple exclusion.
-        fromHql = "from " + StringUtils.substringAfter(fromHql, "from");
-        fromHql = StringUtils.substringBefore(fromHql, "order by");
+        int start = StringUtils.indexOfIgnoreCase(fromHql, "from ");
+        if (start < 0) {
+            throw new AppServiceException("查询语句有误，缺少from： [" + orgHql + "]");
+        }
+        int groupby = StringUtils.indexOfIgnoreCase(fromHql, " group by ");
+        if (groupby > 0) {
+            throw new AppServiceException("查询语句有误，暂不支持group by，请使用sql查询：" + orgHql);
+        }
+        int end = StringUtils.indexOfIgnoreCase(fromHql, " order by ");
 
-        String countHql = "select count(*) " + fromHql;
-        return countHql;
+        if (end > 0) {
+            return "select count(*) " + StringUtil.substring(fromHql, start, end);
+        } else {
+            return "select count(*) " + StringUtil.substring(fromHql, start);
+        }
     }
 
     /**
@@ -470,34 +482,6 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
             logger.debug("values: {}", values);
         }
         return query;
-    }
-
-    /**
-     * 根据sql查询返回Map
-     *
-     * @param sql
-     * @param values
-     * @return
-     * @author songlin
-     * @deprecated (since 1.4.0) use {@link #queryToMap(String, Object...)} instead
-     */
-    @Deprecated
-    protected List<Map<String, Object>> queryForMap(String sql, Object... values) {
-        return queryToMap(sql, values);
-    }
-
-    /**
-     * 根据sql查询返回Map
-     *
-     * @param sql
-     * @param values
-     * @return
-     * @author songlin
-     * @deprecated (since 1.4.0) {@link #queryToMap(String, Map)} instead
-     */
-    @Deprecated
-    protected List<Map<String, Object>> queryForMap(String sql, Map<String, ?> values) {
-        return queryToMap(sql, values);
     }
 
     /**

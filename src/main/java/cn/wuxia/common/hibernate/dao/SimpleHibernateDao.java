@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.hibernate.Criteria;
 import org.hibernate.Hibernate;
 import org.hibernate.Session;
@@ -238,6 +239,10 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      */
     public List<T> findIn(final String propertyName, final Object... values) {
         Assert.hasText(propertyName, "propertyName Can not be null");
+        Assert.notEmpty(values, "values must have one value");
+        if (values.length == 1) {
+            return findBy(propertyName, values[0]);
+        }
         Criterion criterion = Restrictions.in(propertyName, values);
         return find(criterion);
     }
