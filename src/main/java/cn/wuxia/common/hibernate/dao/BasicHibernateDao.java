@@ -1,21 +1,13 @@
 package cn.wuxia.common.hibernate.dao;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
-import java.sql.SQLException;
-import java.util.Collection;
-
+import cn.wuxia.common.entity.ValidationEntity;
+import cn.wuxia.common.exception.AppDaoException;
 import org.hibernate.Hibernate;
 import org.springframework.util.Assert;
 
-import cn.wuxia.common.entity.ValidationEntity;
-import cn.wuxia.common.exception.AppDaoException;
-import cn.wuxia.common.orm.query.Pages;
-import cn.wuxia.common.orm.query.QueryUtil;
-import cn.wuxia.common.util.StringUtil;
+import java.io.*;
+import java.sql.SQLException;
+import java.util.Collection;
 
 /**
  * [ticket id] Description of the class
@@ -55,8 +47,8 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
             // super.evict(entity);
             super.save(entity);
             // super.merge(entity);
-            super.flush();
-            super.clear();
+//            super.flush();
+//            super.clear();
         } catch (Exception e) {
             throw new AppDaoException(e);
         }
@@ -73,8 +65,8 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
         } catch (Exception e) {
             throw new AppDaoException(e);
         }
-        super.flush();
-        super.clear();
+//        super.flush();
+//        super.clear();
     }
 
     /**
@@ -98,19 +90,6 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
      */
     public T getEntityById(final Serializable id) {
         return get(id);
-    }
-
-    /**
-     * getEntityByIdForLog
-     *
-     * @param id
-     * @return
-     * @author Cy.zhong
-     */
-    public T getEvictEntityById(final Serializable id) {
-        T t = getEntityById(id);
-        this.evict(t);
-        return t;
     }
 
     /**
@@ -139,25 +118,5 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
         super.delete(entity);
     }
 
-    /**
-     * @param queryUtil
-     * @return
-     * @author songlin.li
-     */
-    public QueryUtil find(QueryUtil queryUtil) {
-        if (StringUtil.isBlank(queryUtil.getQueryString()) || StringUtil.isBlank(queryUtil.getQueryType())) {
-            return queryUtil;
-        }
-
-        boolean isHql = queryUtil.getQueryType().equals("hql");
-
-        Object[] values = queryUtil.getQueryValues().toArray();
-        queryUtil.combineQueryString();
-        Pages<?> result = isHql ? this.findPage(queryUtil.getPages(), queryUtil.getQueryString(), values)
-                : this.findPageBySql(queryUtil.getPages(), queryUtil.getQueryString(), values);
-
-        queryUtil.setPages(result);
-        return queryUtil;
-    }
 
 }

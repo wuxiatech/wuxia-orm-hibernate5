@@ -253,10 +253,11 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
         Iterator<cn.wuxia.common.orm.query.Sort.Order> it = sort.iterator();
         while (it.hasNext()) {
             cn.wuxia.common.orm.query.Sort.Order order = it.next();
-            if (order.isAscending())
+            if (order.isAscending()) {
                 c.addOrder(Order.asc(order.getProperty()));
-            else
+            }else {
                 c.addOrder(Order.desc(order.getProperty()));
+            }
         }
     }
 
@@ -394,9 +395,9 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
     protected long countSQLResult(String sql, Object... values) {
         long recordTotal;
         int classNameIndex = sql.toLowerCase().indexOf("from");
-        if (classNameIndex == -1)
+        if (classNameIndex == -1) {
             return 0;
-        else {
+        }else {
             sql = "select count(1) as count from (" + sql + ") orgi";
         }
 
@@ -511,6 +512,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      * @return
      * @author songlin
      */
+    @Deprecated
     protected List<Map<String, Object>> queryToMap(String sql, Map<String, ?> values) {
         logger.debug("sql: " + sql);
         NativeQuery query = this.createSQLQuery(sql, values);
@@ -531,6 +533,22 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      */
     protected <X> X queryUnique(String sql, Class<X> clazz, Object... objs) {
         List<X> list = query(sql, clazz, objs);
+        if (ListUtil.isEmpty(list)) {
+            return null;
+        }
+        return list.get(0);
+    }
+
+    /**
+     * get unique result by sql, if result is empty then return null
+     *
+     * @param sql
+     * @param objs
+     * @return
+     * @author songlin.li
+     */
+    protected <X> X queryUnique(String sql, Object... objs) {
+        List<X> list = query(sql, objs);
         if (ListUtil.isEmpty(list)) {
             return null;
         }

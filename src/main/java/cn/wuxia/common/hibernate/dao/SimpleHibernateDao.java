@@ -123,7 +123,7 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
             getSession().saveOrUpdate(entity);
             if (i % 30 == 0) { //单次批量操作的数目为30
                 getSession().flush(); //清理缓存，执行批量插入20条记录的SQL insert语句
-                getSession().clear(); //清空缓存中的Customer对象
+//                getSession().clear(); //清空缓存中的Customer对象
             }
             i++;
         }
