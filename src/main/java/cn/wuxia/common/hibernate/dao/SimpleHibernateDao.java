@@ -12,10 +12,7 @@ import java.util.Map;
 
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.ArrayUtils;
-import org.hibernate.Criteria;
-import org.hibernate.Hibernate;
-import org.hibernate.Session;
-import org.hibernate.SessionFactory;
+import org.hibernate.*;
 import org.hibernate.criterion.CriteriaSpecification;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Order;
@@ -117,17 +114,22 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      */
     public void batchSave(final Collection<T> entitys) {
         Assert.notEmpty(entitys, "entity Can not be null");
-        //Transaction tx = getSession().beginTransaction();
+        /**
+         * java.lang.IllegalStateException: Transaction already active
+         */
+//        Transaction tx = getSession().beginTransaction();
         int i = 0;
         for (T entity : entitys) {
             getSession().saveOrUpdate(entity);
             if (i % 30 == 0) { //单次批量操作的数目为30
                 getSession().flush(); //清理缓存，执行批量插入20条记录的SQL insert语句
-//                getSession().clear(); //清空缓存中的Customer对象
+                getSession().clear(); //清空缓存中的对象
             }
             i++;
         }
-        //tx.commit();
+        getSession().flush();
+        getSession().clear();
+//        tx.commit();
         //getSession().close();
         if (logger.isDebugEnabled()) {
             logger.debug("save entity: {}", entitys);

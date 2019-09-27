@@ -2,12 +2,17 @@ package cn.wuxia.common.hibernate.dao;
 
 import cn.wuxia.common.entity.ValidationEntity;
 import cn.wuxia.common.exception.AppDaoException;
+import cn.wuxia.common.exception.ValidateException;
+import cn.wuxia.common.util.ListUtil;
+import cn.wuxia.common.util.StringUtil;
+import com.google.common.collect.Lists;
 import org.hibernate.Hibernate;
 import org.springframework.util.Assert;
 
 import java.io.*;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * [ticket id] Description of the class
@@ -44,29 +49,27 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
     public void saveEntity(T entity) throws AppDaoException {
         try {
             entity.validate();
-            // super.evict(entity);
             super.save(entity);
-            // super.merge(entity);
-//            super.flush();
-//            super.clear();
         } catch (Exception e) {
             throw new AppDaoException(e);
         }
+//            super.flush();
+//            super.clear();
     }
 
     public void saveEntity(Collection<T> entitys) throws AppDaoException {
-        try {
-            for (T entity : entitys) {
+        List<String> ex = Lists.newArrayListWithCapacity(1);
+        for (T entity : entitys) {
+            try {
                 entity.validate();
-                // super.evict(entity);
-                super.save(entity);
-                // super.merge(entity);
+            } catch (ValidateException e) {
+                ex.add(e.getMessage());
             }
-        } catch (Exception e) {
-            throw new AppDaoException(e);
         }
-//        super.flush();
-//        super.clear();
+        if (ListUtil.isNotEmpty(ex)) {
+            throw new AppDaoException(StringUtil.join(ex, "/r/n"));
+        }
+        super.batchSave(entitys);
     }
 
     /**
