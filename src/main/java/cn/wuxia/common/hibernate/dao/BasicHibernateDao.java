@@ -73,53 +73,11 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
     }
 
     /**
-     * Description of the method
-     *
-     * @param sql
-     * @param values
-     * @return
-     * @author songlin
-     */
-    protected int batchExecuteSql(final String sql, final Object... values) {
-        return createSQLQuery(sql, values).executeUpdate();
-    }
-
-    /**
-     * getEntityById
-     *
      * @param id
      * @return T class
-     * @author Cy.zhong
      */
-    public T getEntityById(final Serializable id) {
+    public T findById(final Serializable id) {
         return get(id);
     }
-
-    /**
-     * physically deleted
-     *
-     * @param id
-     * @author songlin.li
-     */
-    public void deleteEntityById(final Serializable id) throws AppDaoException {
-        Assert.notNull(id, "id Can not be null");
-        logger.debug("delete entity {}, id is {}", "", id);
-        super.delete(id);
-    }
-
-    /**
-     * physically deleted
-     *
-     * @param entity
-     * @author songlin.li
-     */
-    public void deleteByEntity(final T entity) throws AppDaoException {
-        Assert.notNull(entity, "entity Can not be null");
-        if (logger.isDebugEnabled()) {
-            logger.debug("delete entity {}", entity);
-        }
-        super.delete(entity);
-    }
-
 
 }
