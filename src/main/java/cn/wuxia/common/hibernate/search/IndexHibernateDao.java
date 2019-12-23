@@ -25,12 +25,12 @@ import org.hibernate.search.query.dsl.QueryBuilder;
 import org.hibernate.transform.Transformers;
 import org.springframework.util.Assert;
 
-import cn.wuxia.common.entity.ValidationEntity;
+import cn.wuxia.common.validator.ValidationEntity;
 import cn.wuxia.common.hibernate.dao.BasicHibernateDao;
 import cn.wuxia.common.orm.query.Pages;
 import cn.wuxia.common.util.ListUtil;
 
-public class IndexHibernateDao<T extends ValidationEntity, PK extends Serializable> extends BasicHibernateDao<T, Serializable> {
+public class IndexHibernateDao<T, PK extends Serializable> extends BasicHibernateDao<T, Serializable> {
 
     /**
      * 判断是否有需要索引

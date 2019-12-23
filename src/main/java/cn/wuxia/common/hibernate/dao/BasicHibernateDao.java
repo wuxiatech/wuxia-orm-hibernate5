@@ -1,25 +1,16 @@
 package cn.wuxia.common.hibernate.dao;
 
-import cn.wuxia.common.entity.ValidationEntity;
-import cn.wuxia.common.exception.AppDaoException;
-import cn.wuxia.common.exception.ValidateException;
-import cn.wuxia.common.util.ListUtil;
-import cn.wuxia.common.util.StringUtil;
-import com.google.common.collect.Lists;
 import org.hibernate.Hibernate;
-import org.springframework.util.Assert;
 
 import java.io.*;
 import java.sql.SQLException;
-import java.util.Collection;
-import java.util.List;
 
 /**
  * [ticket id] Description of the class
  *
  * @author songlin.li @ Version : V<Ver.No> <Oct 26, 2012>
  */
-public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializable> extends SupportHibernateDao<T, Serializable> {
+public class BasicHibernateDao<T, PK extends Serializable> extends SupportHibernateDao<T, Serializable> {
 
     public java.sql.Blob objectToBlob(Object obj) throws IOException {
         try {
@@ -39,37 +30,6 @@ public class BasicHibernateDao<T extends ValidationEntity, PK extends Serializab
         Object obj = in.readObject();
         in.close();
         return obj;
-    }
-
-    /**
-     * rewrite for service partner business
-     *
-     * @see cn.wuxia.common.hibernate.dao.SimpleHibernateDao#save(java.lang.Object)
-     */
-    public void saveEntity(T entity) throws AppDaoException {
-        try {
-            entity.validate();
-            super.save(entity);
-        } catch (Exception e) {
-            throw new AppDaoException(e);
-        }
-//            super.flush();
-//            super.clear();
-    }
-
-    public void saveEntity(Collection<T> entitys) throws AppDaoException {
-        List<String> ex = Lists.newArrayListWithCapacity(1);
-        for (T entity : entitys) {
-            try {
-                entity.validate();
-            } catch (ValidateException e) {
-                ex.add(e.getMessage());
-            }
-        }
-        if (ListUtil.isNotEmpty(ex)) {
-            throw new AppDaoException(StringUtil.join(ex, "/r/n"));
-        }
-        super.batchSave(entitys);
     }
 
     /**
