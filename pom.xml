@@ -5,18 +5,32 @@
     <parent>
         <groupId>cn.wuxia.parent</groupId>
         <artifactId>parent2020</artifactId>
-        <version>2.4.1</version>
+        <version>2.4.2</version>
     </parent>
 
     <artifactId>wuxia.hibernate5-orm</artifactId>
     <name>WUXIA Hibernate5 Common</name>
     <description>WUXIA Hibernate5 Common Project</description>
-    <version>2.4.1</version>
+    <version>2.4.2</version>
     <packaging>jar</packaging>
     <url>https://github.com/wuxiatech/wuxia-orm-hibernate5</url>
     <properties>
-        <wuxia-common.version>[2.4.1,)</wuxia-common.version>
+        <wuxia-common.version>[2.4.2,)</wuxia-common.version>
     </properties>
+    <developers>
+        <developer>
+            <name>lisonglin</name>
+            <email>237550195@qq.com</email>
+            <id>songlin</id>
+            <organization>wuxia.tech</organization>
+        </developer>
+    </developers>
+    <licenses>
+        <license>
+            <name>Apache 2</name>
+            <url>https://github.com/wuxiatech/wuxia-orm-hibernate5/blob/master/LICENSE</url>
+        </license>
+    </licenses>
     <dependencies>
         <dependency>
             <groupId>cn.wuxia.common</groupId>
