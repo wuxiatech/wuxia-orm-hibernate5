@@ -5,31 +5,32 @@
  */
 package cn.wuxia.common.hibernate.dao;
 
-import java.io.Serializable;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-
-import org.apache.commons.collections.MapUtils;
-import org.apache.commons.lang3.ArrayUtils;
-import org.hibernate.*;
+import cn.wuxia.common.util.ArrayUtil;
+import cn.wuxia.common.util.ListUtil;
+import cn.wuxia.common.util.MapUtil;
+import cn.wuxia.common.util.reflection.ReflectionUtil;
+import org.hibernate.Criteria;
+import org.hibernate.Hibernate;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
 import org.hibernate.criterion.CriteriaSpecification;
 import org.hibernate.criterion.Criterion;
-import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.metadata.ClassMetadata;
 import org.hibernate.query.Query;
+import org.hibernate.query.criteria.internal.OrderImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.Assert;
 
-import cn.wuxia.common.util.ArrayUtil;
-import cn.wuxia.common.util.reflection.ReflectionUtil;
-
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Package Hibernate native API the DAO generic base class. Direct use in the
@@ -182,7 +183,7 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      * @description : Id list to get a list of objects.
      */
     public List<T> get(final Collection<PK> ids) {
-        return find(Restrictions.in(getIdName(), ids));
+        return findIn(getIdName(), ids);
     }
 
     /**
@@ -196,13 +197,15 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      * @description : Get all objects support line sequence by attribute.
      */
     public List<T> getAll(String orderByProperty, boolean isAsc) {
-        Criteria c = createCriteria();
+        CriteriaQuery crq = createCriteriaQuery();
+        Root<T> root = crq.from(entityClass);
+        crq.select(root);
         if (isAsc) {
-            c.addOrder(Order.asc(orderByProperty));
+            crq.orderBy(new OrderImpl(root.get(orderByProperty)));
         } else {
-            c.addOrder(Order.desc(orderByProperty));
+            crq.orderBy(new OrderImpl(root.get(orderByProperty), false));
         }
-        return c.list();
+        return find(crq);
     }
 
     /**
@@ -215,7 +218,6 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
         Root<T> root = crq.from(entityClass);
         crq.select(root);
         crq.where(createCriteriaBuilder().equal(root.get(propertyName), value));
-
         return getSession().createQuery(crq).getResultList();
     }
 
@@ -228,8 +230,13 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      */
     public List<T> findIn(final String propertyName, final Collection<?> values) {
         Assert.hasText(propertyName, "propertyName Can not be null");
-        Criterion criterion = Restrictions.in(propertyName, values);
-        return find(criterion);
+        CriteriaQuery crq = createCriteriaQuery();
+        Root<T> root = crq.from(entityClass);
+        crq.select(root);
+        CriteriaBuilder.In in = createCriteriaBuilder().in(root.get(propertyName));
+        values.forEach(value -> in.value(value));
+        crq.where(in);
+        return find(crq);
     }
 
     /**
@@ -244,9 +251,9 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
         Assert.notEmpty(values, "values must have one value");
         if (values.length == 1) {
             return findBy(propertyName, values[0]);
+        } else {
+            return findIn(propertyName, ListUtil.arrayToList(values));
         }
-        Criterion criterion = Restrictions.in(propertyName, values);
-        return find(criterion);
     }
 
     /**
@@ -259,8 +266,13 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      */
     public List<T> findNotIn(final String propertyName, final Collection<?> values) {
         Assert.hasText(propertyName, "propertyName Can not be null");
-        Criterion criterion = Restrictions.not(Restrictions.in(propertyName, values));
-        return find(criterion);
+        CriteriaQuery crq = createCriteriaQuery();
+        Root<T> root = crq.from(entityClass);
+        crq.select(root);
+        CriteriaBuilder.In in = createCriteriaBuilder().in(root.get(propertyName));
+        values.forEach(value -> in.value(value));
+        crq.where(createCriteriaBuilder().not(in));
+        return find(crq);
     }
 
     /**
@@ -272,9 +284,7 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      * @author songlin
      */
     public List<T> findNotIn(final String propertyName, final Object... values) {
-        Assert.hasText(propertyName, "propertyName Can not be null");
-        Criterion criterion = Restrictions.not(Restrictions.in(propertyName, values));
-        return find(criterion);
+        return findNotIn(propertyName, ListUtil.arrayToList(values));
     }
 
     /**
@@ -373,7 +383,7 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
     protected <X> Query<X> createQuery(final String hql, final Map<String, ?> values) {
         Assert.hasText(hql, "queryString Can not be null");
         Query<X> query = getSession().createQuery(hql);
-        if (MapUtils.isNotEmpty(values)) {
+        if (MapUtil.isNotEmpty(values)) {
             query.setProperties(values);
         }
         return query;
@@ -405,7 +415,7 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
     protected <X> Query<X> createQuery(final String hql, final Class<X> clazz, final Map<String, ?> values) {
         Assert.hasText(hql, "queryString Can not be null");
         Query<X> query = getSession().createQuery(hql, clazz);
-        if (MapUtils.isNotEmpty(values)) {
+        if (MapUtil.isNotEmpty(values)) {
             query.setProperties(values);
         }
         return query;
@@ -414,15 +424,18 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
     /**
      * @param criterions Variable number of Criterion.
      * @description : Criteria query object list.
+     * instead of {@link #find(CriteriaQuery)}
      */
     @Deprecated
     public List<T> find(final Criterion... criterions) {
         return createCriteria(criterions).list();
     }
 
+
     /**
      * @param criterions Variable number of Criterion.
      * @description : Criteria query a unique object.
+     * instead of {@link #findUnique(CriteriaQuery)}
      */
     @Deprecated
     public T findUnique(final Criterion... criterions) {
@@ -433,6 +446,7 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      * @param criterions Variable number of Criterion.
      * @description : Created under Criterion conditions with the find ()
      * function can be more flexible operation.
+     * instead of @see {@link #createCriteriaQuery()}
      */
     @Deprecated
     public Criteria createCriteria(final Criterion... criterions) {
@@ -449,6 +463,23 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
 
     protected CriteriaQuery<T> createCriteriaQuery() {
         return createCriteriaBuilder().createQuery(entityClass);
+    }
+
+    /**
+     * @param criteriaQuery
+     * @description : Criteria query object list.
+     */
+    public List<T> find(final CriteriaQuery criteriaQuery) {
+        return getSession().createQuery(criteriaQuery).list();
+    }
+
+
+    /**
+     * @param criteriaQuery
+     * @description : Criteria query a unique object.
+     */
+    public T findUnique(final CriteriaQuery criteriaQuery) {
+        return (T) getSession().createQuery(criteriaQuery).uniqueResult();
     }
 
     /**
@@ -488,6 +519,7 @@ public class SimpleHibernateDao<T, PK extends Serializable> {
      * associated object will cause duplication of the main object,
      * the need for a distinct processing.
      */
+    @Deprecated
     public Criteria distinct(Criteria criteria) {
         criteria.setResultTransformer(CriteriaSpecification.DISTINCT_ROOT_ENTITY);
         return criteria;

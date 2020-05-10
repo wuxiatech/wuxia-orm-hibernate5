@@ -1,15 +1,14 @@
 package cn.wuxia.common.hibernate.dao;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-
-import javax.persistence.Entity;
-
 import cn.wuxia.common.exception.AppServiceException;
+import cn.wuxia.common.hibernate.ConditionsSpecification;
+import cn.wuxia.common.hibernate.Specifications;
 import cn.wuxia.common.orm.PageSQLHandler;
+import cn.wuxia.common.orm.query.*;
+import cn.wuxia.common.util.*;
+import cn.wuxia.common.util.reflection.ReflectionUtil;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -19,16 +18,21 @@ import org.hibernate.criterion.*;
 import org.hibernate.internal.CriteriaImpl;
 import org.hibernate.query.NativeQuery;
 import org.hibernate.query.Query;
+import org.hibernate.query.criteria.internal.OrderImpl;
+import org.hibernate.query.internal.NativeQueryImpl;
 import org.hibernate.transform.ResultTransformer;
 import org.hibernate.transform.Transformers;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-
-import cn.wuxia.common.orm.query.*;
-import cn.wuxia.common.util.*;
-import cn.wuxia.common.util.reflection.ReflectionUtil;
+import javax.persistence.Entity;
+import javax.persistence.TypedQuery;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.Predicate;
+import javax.persistence.criteria.Root;
+import java.io.Serializable;
+import java.util.*;
 
 /**
  * Package SpringSide extension of a Hibernate DAO generic base class extended
@@ -70,12 +74,12 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      */
 
     public List<T> findAll(final Sort sort) {
-        Criteria criteria = createCriteria();
+        javax.persistence.criteria.CriteriaQuery criteriaQuery = createCriteriaQuery();
         /**
          * set sort order
          */
-        setSortOrder(criteria, sort);
-        return criteria.list();
+        setSortOrder(criteriaQuery, sort);
+        return find(criteriaQuery);
     }
 
     // -- Page query function --//
@@ -164,12 +168,14 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
 
     /**
      * query by Criteria.
+     * instead of #page.setConditons(List<Conditions> conditions)
      *
      * @param page
      * @param criterions
      * @return Paging query results. Comes with a list of results and all of the
      * query input parameters.
      */
+    @Deprecated
     public <X> Pages<X> findPage(final Pages<X> page, final Criterion... criterions) {
         Assert.notNull(page, "page can not be null");
 
@@ -230,6 +236,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      * Set the paging parameters to the Criteria object , the auxiliary
      * function.
      */
+    @Deprecated
     protected void setPageParameterToCriteria(Criteria c, final Pages<?> page) {
         if (page.getPageSize() > 0) {
             // hibernate firstResult start with 0
@@ -241,6 +248,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
         }
     }
 
+
     /**
      * set sort order to hibernate order
      *
@@ -248,16 +256,113 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      * @param sort
      * @return
      * @author songlin
+     * instead of {@link #setSortOrder(javax.persistence.criteria.CriteriaQuery, Sort)}
      */
+    @Deprecated
     protected void setSortOrder(Criteria c, final Sort sort) {
         Iterator<cn.wuxia.common.orm.query.Sort.Order> it = sort.iterator();
         while (it.hasNext()) {
             cn.wuxia.common.orm.query.Sort.Order order = it.next();
             if (order.isAscending()) {
                 c.addOrder(Order.asc(order.getProperty()));
-            }else {
+            } else {
                 c.addOrder(Order.desc(order.getProperty()));
             }
+        }
+    }
+
+
+    protected javax.persistence.criteria.CriteriaQuery<T> createCriteriaQuery(Conditions[] conditions) {
+        CriteriaBuilder criteriaBuilder = createCriteriaBuilder();
+        javax.persistence.criteria.CriteriaQuery criteriaQuery = criteriaBuilder.createQuery(entityClass);
+        Root<T> root = criteriaQuery.from(entityClass);
+        criteriaQuery.select(root);
+        Predicate predicate = Specifications.get(conditions).toPredicate(root, criteriaQuery, criteriaBuilder);
+        if (predicate != null) {
+            criteriaQuery.where(predicate);
+        }
+        return criteriaQuery;
+
+    }
+
+    protected long count(Conditions[] conditions) {
+        return NumberUtil.toLong(getCountQuery(Specifications.get(conditions), entityClass).getSingleResult());
+    }
+
+    protected <S extends T> TypedQuery<Long> getCountQuery(@Nullable ConditionsSpecification<S> spec, Class<S> domainClass) {
+        CriteriaBuilder builder = createCriteriaBuilder();
+        javax.persistence.criteria.CriteriaQuery<Long> query = builder.createQuery(Long.class);
+        Root<S> root = this.applySpecificationToCriteria(spec, domainClass, query);
+        if (query.isDistinct()) {
+            query.select(builder.countDistinct(root));
+        } else {
+            query.select(builder.count(root));
+        }
+
+        query.orderBy(Collections.emptyList());
+        return this.getSession().createQuery(query);
+    }
+
+    private <S, U extends T> Root<U> applySpecificationToCriteria(@Nullable ConditionsSpecification<U> spec, Class<U> domainClass, javax.persistence.criteria.CriteriaQuery<S> query) {
+        Assert.notNull(domainClass, "Domain class must not be null!");
+        Assert.notNull(query, "CriteriaQuery must not be null!");
+        Root<U> root = query.from(domainClass);
+        if (spec == null) {
+            return root;
+        } else {
+            CriteriaBuilder builder = createCriteriaBuilder();
+            Predicate predicate = spec.toPredicate(root, query, builder);
+            if (predicate != null) {
+                query.where(predicate);
+            }
+
+            return root;
+        }
+    }
+
+    /**
+     * query by CriteriaQuery
+     *
+     * @param page
+     * @return Paging query results. Comes with a list of results and all of the
+     * query input parameters.
+     */
+    public Pages<T> findPage(final Pages page) {
+        Assert.notNull(page, "page can not be null");
+
+        //转换为Criterion
+
+        Conditions[] conditions = (Conditions[]) ListUtil.listToArray(page.getConditions());
+        if (page.isAutoCount()) {
+            long totalCount = count(conditions);
+            page.setTotalCount(totalCount);
+            if (totalCount == 0) {
+                return page;
+            }
+        }
+        javax.persistence.criteria.CriteriaQuery<T> criteriaQuery = createCriteriaQuery(conditions);
+        Query query = getSession().createQuery(criteriaQuery);
+        if (page.getSort() != null) {
+            setSortOrder(criteriaQuery, page.getSort());
+        }
+        setPageParameterToQuery(query, page);
+
+        List<T> result = query.list();
+        page.setResult(result);
+        return page;
+    }
+
+    /**
+     * @param criteriaQuery
+     * @param sort
+     */
+    protected void setSortOrder(javax.persistence.criteria.CriteriaQuery criteriaQuery, final Sort sort) {
+        Iterator<cn.wuxia.common.orm.query.Sort.Order> it = sort.iterator();
+        Root<T> root = criteriaQuery.from(entityClass);
+        criteriaQuery.select(root);
+        while (it.hasNext()) {
+            cn.wuxia.common.orm.query.Sort.Order order = it.next();
+            criteriaQuery.orderBy(new OrderImpl(root.get(order.getProperty()), order.isAscending()));
         }
     }
 
@@ -347,6 +452,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      * Executing count query to obtain the total number of the Criteria query
      * object can be obtained .
      */
+    @Deprecated
     protected long countCriteriaResult(final Criteria c) {
         CriteriaImpl impl = (CriteriaImpl) c;
 
@@ -397,7 +503,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
         int classNameIndex = sql.toLowerCase().indexOf("from");
         if (classNameIndex == -1) {
             return 0;
-        }else {
+        } else {
             sql = "select count(1) as count from (" + sql + ") orgi";
         }
 
@@ -497,7 +603,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
         logger.debug("sql: " + sql);
 
         NativeQuery query = this.createSQLQuery(sql, values);
-        query.setResultTransformer(Criteria.ALIAS_TO_ENTITY_MAP);
+        query.unwrap(NativeQueryImpl.class).setResultTransformer(Criteria.ALIAS_TO_ENTITY_MAP);
         List<Map<String, Object>> result = query.list();
 
         logger.debug("size: " + result.size());
@@ -516,7 +622,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
     protected List<Map<String, Object>> queryToMap(String sql, Map<String, ?> values) {
         logger.debug("sql: " + sql);
         NativeQuery query = this.createSQLQuery(sql, values);
-        query.setResultTransformer(Criteria.ALIAS_TO_ENTITY_MAP);
+        query.unwrap(NativeQueryImpl.class).setResultTransformer(Criteria.ALIAS_TO_ENTITY_MAP);
         List<Map<String, Object>> result = query.list();
 
         logger.debug("size: " + result.size());
@@ -591,7 +697,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
                 query = this.createSQLQuery(sql, clazz, values);
             } else {
                 query = this.createSQLQuery(sql, values);
-                query.setResultTransformer(Transformers.aliasToBean(clazz));
+                query.unwrap(NativeQueryImpl.class).setResultTransformer(Transformers.aliasToBean(clazz));
             }
         }
         List<X> result = query.list();
@@ -629,7 +735,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
                 query = this.createSQLQuery(sql, clazz, values);
             } else {
                 query = this.createSQLQuery(sql, values);
-                query.setResultTransformer(Transformers.aliasToBean(clazz));
+                query.unwrap(NativeQueryImpl.class).setResultTransformer(Transformers.aliasToBean(clazz));
             }
         }
         List<X> result = query.list();
@@ -683,8 +789,9 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      */
     protected <X> Pages<X> findPageBySql(final Pages<X> page, final Class<X> clas, final String sql, final Object... values) {
         int classNameIndex = sql.toLowerCase().indexOf("from");
-        if (classNameIndex == -1)
+        if (classNameIndex == -1) {
             return null;
+        }
         Assert.notNull(page, "page can not be null");
         /**
          * 动态拼接参数
@@ -709,11 +816,11 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
                 q = createSQLQuery(querySql, clas, paramValue.toArray());
             } else {
                 q = createSQLQuery(querySql, paramValue.toArray());
-                q.setResultTransformer(Transformers.aliasToBean(clas));
+                q.unwrap(NativeQueryImpl.class).setResultTransformer(Transformers.aliasToBean(clas));
             }
         } else {
             q = createSQLQuery(querySql, paramValue.toArray());
-            q.setResultTransformer(Transformers.ALIAS_TO_ENTITY_MAP);
+            q.unwrap(NativeQueryImpl.class).setResultTransformer(Transformers.ALIAS_TO_ENTITY_MAP);
         }
         setPageParameterToQuery(q, page);
         page.setResult(q.list());
@@ -754,19 +861,17 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
                 q = createSQLQuery(querySql, clas, paramValue);
             } else {
                 q = createSQLQuery(querySql, paramValue);
-                q.setResultTransformer(Transformers.aliasToBean(clas));
+                q.unwrap(NativeQueryImpl.class).setResultTransformer(Transformers.aliasToBean(clas));
             }
         } else {
             q = createSQLQuery(querySql, paramValue);
-            q.setResultTransformer(Transformers.ALIAS_TO_ENTITY_MAP);
+            q.unwrap(NativeQueryImpl.class).setResultTransformer(Transformers.ALIAS_TO_ENTITY_MAP);
         }
         setPageParameterToQuery(q, page);
         page.setResult(q.list());
         return page;
     }
 
-
-    // -- PropertyFilter --//
 
     /**
      * @param propertyName
@@ -779,17 +884,22 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      */
     public List<T> findBy(String propertyName, Object value, String orderBy, boolean isAsc) {
         Assert.hasText(propertyName, "propertyName Can not be null");
-        Criterion criterion = Restrictions.eq(propertyName, value);
-        Criteria c = createCriteria(criterion);
-        c.add(criterion);
+        javax.persistence.criteria.CriteriaQuery criteriaQuery = createCriteriaQuery();
+        Root<T> root = criteriaQuery.from(entityClass);
+        criteriaQuery.select(root);
+        criteriaQuery.where(createCriteriaBuilder().equal(root.get(propertyName), value));
+        criteriaQuery.orderBy(new OrderImpl(root.get(orderBy), isAsc));
+        return find(criteriaQuery);
+    }
 
-        if (isAsc) {
-            c.addOrder(Order.asc(orderBy));
-        } else {
-            c.addOrder(Order.desc(orderBy));
-        }
-
-        return c.list();
+    /**
+     * 代替 ${@link #find(Criterion[]  criterion)
+     *
+     * @param conditions
+     * @return
+     */
+    public List<T> find(Conditions... conditions) {
+        return find(createCriteriaQuery(conditions));
     }
 
     /**
@@ -798,11 +908,14 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      * @description : Find the list of Entity List by propertyName and support
      * for multiple matches .
      */
+    @Deprecated
     public List<T> findBy(final String propertyName, final MatchType matchType, final Object... value) {
 
         Criterion criterion = buildCriterion(propertyName, matchType, value);
         return find(criterion);
     }
+
+    // -- PropertyFilter --//
 
     /**
      * @param filters
@@ -810,6 +923,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      * @description : Find a list of objects attribute to filter list of
      * conditions.
      */
+    @Deprecated
     public List<T> find(List<PropertyFilter> filters) {
         Criterion[] criterions = buildCriterionByPropertyFilter(filters);
         return find(criterions);
@@ -821,6 +935,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      * @return
      * @description : Find an object attribute filtering condition list page.
      */
+    @Deprecated
     public Pages<T> findPage(final Pages<T> page, final List<PropertyFilter> filters) {
         Criterion[] criterions = buildCriterionByPropertyFilter(filters);
         return findPage(page, criterions);
@@ -835,6 +950,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      * condition parameters.
      * @author songlin
      */
+    @Deprecated
     protected Criterion buildCriterion(final String propertyName, final MatchType matchType, final Object... propertyValue) {
         Assert.hasText(propertyName, "property Name Can not be empty");
         Criterion criterion = null;
@@ -924,6 +1040,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      * @description : Criterion array of auxiliary functions according to the
      * attribute list of conditions to create.
      */
+    @Deprecated
     protected Criterion[] buildCriterionByPropertyFilter(final List<PropertyFilter> filters) {
         List<Criterion> criterionList = new ArrayList<Criterion>();
         for (PropertyFilter filter : filters) {
