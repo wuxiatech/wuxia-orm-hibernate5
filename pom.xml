@@ -5,17 +5,17 @@
     <parent>
         <groupId>cn.wuxia.parent</groupId>
         <artifactId>parent2020</artifactId>
-        <version>2.4.3</version>
+        <version>2.5.0</version>
     </parent>
 
     <artifactId>wuxia.hibernate5-orm</artifactId>
     <name>WUXIA Hibernate5 Common</name>
     <description>WUXIA Hibernate5 Common Project</description>
-    <version>2.4.4</version>
+    <version>2.5.0</version>
     <packaging>jar</packaging>
     <url>https://github.com/wuxiatech/wuxia-orm-hibernate5</url>
     <properties>
-        <wuxia-common.version>2.4.3</wuxia-common.version>
+        <wuxia-common.version>2.5.0</wuxia-common.version>
     </properties>
     <developers>
         <developer>
