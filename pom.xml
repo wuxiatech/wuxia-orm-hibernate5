@@ -11,7 +11,7 @@
     <artifactId>wuxia.hibernate5-orm</artifactId>
     <name>WUXIA Hibernate5 Common</name>
     <description>WUXIA Hibernate5 Common Project</description>
-    <version>2.5.0</version>
+    <version>2.5.1</version>
     <packaging>jar</packaging>
     <url>https://github.com/wuxiatech/wuxia-orm-hibernate5</url>
     <properties>
