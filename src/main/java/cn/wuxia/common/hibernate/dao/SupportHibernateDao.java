@@ -74,11 +74,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      */
 
     public List<T> findAll(final Sort sort) {
-        javax.persistence.criteria.CriteriaQuery criteriaQuery = createCriteriaQuery();
-        /**
-         * set sort order
-         */
-        setSortOrder(criteriaQuery, sort);
+        javax.persistence.criteria.CriteriaQuery criteriaQuery = createCriteriaQuery(sort, null);
         return find(criteriaQuery);
     }
 
@@ -272,7 +268,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
     }
 
 
-    protected javax.persistence.criteria.CriteriaQuery<T> createCriteriaQuery(Conditions[] conditions) {
+    protected javax.persistence.criteria.CriteriaQuery<T> createCriteriaQuery(Sort sort, Conditions[] conditions) {
         CriteriaBuilder criteriaBuilder = createCriteriaBuilder();
         javax.persistence.criteria.CriteriaQuery criteriaQuery = criteriaBuilder.createQuery(entityClass);
         Root<T> root = criteriaQuery.from(entityClass);
@@ -280,6 +276,13 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
         Predicate predicate = Specifications.get(conditions).toPredicate(root, criteriaQuery, criteriaBuilder);
         if (predicate != null) {
             criteriaQuery.where(predicate);
+        }
+        if (sort != null) {
+            Iterator<cn.wuxia.common.orm.query.Sort.Order> it = sort.iterator();
+            while (it.hasNext()) {
+                cn.wuxia.common.orm.query.Sort.Order order = it.next();
+                criteriaQuery.orderBy(new OrderImpl(root.get(order.getProperty()), order.isAscending()));
+            }
         }
         return criteriaQuery;
 
@@ -340,30 +343,12 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
                 return page;
             }
         }
-        javax.persistence.criteria.CriteriaQuery<T> criteriaQuery = createCriteriaQuery(conditions);
+        javax.persistence.criteria.CriteriaQuery<T> criteriaQuery = createCriteriaQuery(page.getSort(), conditions);
         Query query = getSession().createQuery(criteriaQuery);
-        if (page.getSort() != null) {
-            setSortOrder(criteriaQuery, page.getSort());
-        }
         setPageParameterToQuery(query, page);
-
         List<T> result = query.list();
         page.setResult(result);
         return page;
-    }
-
-    /**
-     * @param criteriaQuery
-     * @param sort
-     */
-    protected void setSortOrder(javax.persistence.criteria.CriteriaQuery criteriaQuery, final Sort sort) {
-        Iterator<cn.wuxia.common.orm.query.Sort.Order> it = sort.iterator();
-        Root<T> root = criteriaQuery.from(entityClass);
-        criteriaQuery.select(root);
-        while (it.hasNext()) {
-            cn.wuxia.common.orm.query.Sort.Order order = it.next();
-            criteriaQuery.orderBy(new OrderImpl(root.get(order.getProperty()), order.isAscending()));
-        }
     }
 
     /**
@@ -899,7 +884,7 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
      * @return
      */
     public List<T> find(Conditions... conditions) {
-        return find(createCriteriaQuery(conditions));
+        return find(createCriteriaQuery(null, conditions));
     }
 
     /**
