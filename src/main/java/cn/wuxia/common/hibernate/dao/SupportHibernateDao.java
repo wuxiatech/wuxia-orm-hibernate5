@@ -878,13 +878,23 @@ public class SupportHibernateDao<T, PK extends Serializable> extends SimpleHiber
     }
 
     /**
-     * 代替 ${@link #find(Criterion[]  criterion)
+     * 代替 ${@link #find(Criterion...)}
      *
      * @param conditions
      * @return
      */
     public List<T> find(Conditions... conditions) {
         return find(createCriteriaQuery(null, conditions));
+    }
+
+    /**
+     * 代替 ${@link #findUnique(Criterion...)}
+     *
+     * @param conditions
+     * @return
+     */
+    public T findUnique(Conditions... conditions) {
+        return findUnique(createCriteriaQuery(null, conditions));
     }
 
     /**
